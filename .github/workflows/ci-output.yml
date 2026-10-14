@@ -37,7 +37,7 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p build
-          ./gradlew --no-daemon --stacktrace build -x test 2>&1 | tee build/build.log
+          ./gradlew --no-daemon --stacktrace assemble 2>&1 | tee build/build.log
           exit ${PIPESTATUS[0]}
 
       - name: Publish outputs to the ci-output branch
