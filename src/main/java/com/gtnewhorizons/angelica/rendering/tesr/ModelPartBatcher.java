@@ -221,6 +221,17 @@ public final class ModelPartBatcher {
         lastBoundGlintSlot = glintSlot;
     }
 
+    /**
+     * True while an entity renderer's texture binds may be deferred (see MixinTextureManager): the batcher is
+     * active, the renderer is known to be safe to batch, and nothing is being recorded into a display list.
+     * In that state every model part the renderer draws is captured, and the batcher binds the textures itself
+     * when it flushes, so the renderer's own binds would only cost the driver a texture switch each.
+     */
+    public static boolean lazyBindsAllowed() {
+        final ModelPartBatcher r = INSTANCE;
+        return r.active && r.shaderPipeline == null && BatchEligibility.batchingAllowed() && !DisplayListManager.isRecording();
+    }
+
     public static void onTextureBind(ResourceLocation location, int glId) {
         lastBoundLocation = location;
         lastBoundGlId = glId;
@@ -271,6 +282,9 @@ public final class ModelPartBatcher {
             flushNow(true);
         } finally {
             BatchStateGuard.resume();
+            // A bind left pending by the last renderer is sent now, so the state after the pass is what
+            // vanilla code expects (one bind, not per entity).
+            GLStateManager.flushLazyTextureBind();
         }
     }
 

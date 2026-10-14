@@ -477,6 +477,7 @@ public class GLStateManager {
      */
     public static int getBoundTextureForServerState() {
         if (isCachingEnabled()) {
+            if (lazyTexture2D != 0 && ctx().activeTextureUnit.getValue() == 0) return lazyTexture2D;
             return getBoundTexture();
         }
         // Query actual GL state for SharedDrawable context
@@ -498,6 +499,7 @@ public class GLStateManager {
      */
     public static int getBoundTextureForServerState(int unit) {
         if (isCachingEnabled()) {
+            if (unit == 0 && lazyTexture2D != 0) return lazyTexture2D;
             return getBoundTexture(unit);
         }
         return -1;
@@ -1720,6 +1722,7 @@ public class GLStateManager {
     }
 
     public static void beginForeignDraw() {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         ctx().foreignDrawDepth++;
     }
 
@@ -2284,6 +2287,7 @@ public class GLStateManager {
 
     // Textures
     public static void glActiveTexture(int texture) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         final RecordMode mode = DisplayListManager.getRecordMode();
         if (mode != RecordMode.NONE) {
             DisplayListManager.recordActiveTexture(texture);
@@ -2317,6 +2321,7 @@ public class GLStateManager {
     }
 
     public static void glActiveTextureARB(int texture) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         glActiveTexture(texture);
     }
 
@@ -2340,6 +2345,64 @@ public class GLStateManager {
         return getBoundTexture(ctx().activeTextureUnit.getValue());
     }
 
+    // ---- Lazy texture binds ------------------------------------------------------------------------------
+    //
+    // While the model part batcher captures an entity's geometry, the textures the entity renderer binds are
+    // never used by a draw: the batcher records them and binds them itself, sorted, when it flushes. Each
+    // glBindTexture still costs the driver a texture switch, and a fight with 20 armoured players makes ~170
+    // of them a frame. A lazy bind remembers the request instead of sending it, and the bind is only sent if
+    // something actually needs the texture bound: a draw, a texture upload or query, a texture unit switch, or
+    // a real bind of a different texture. Queries of the bound texture answer with the lazy one, so the rest of
+    // Angelica sees the texture as bound. The driver state and the cache behind it stay truthful throughout.
+    //
+    // Only 2D binds on texture unit 0 with state caching on are made lazy; anything else binds as before.
+
+    private static int lazyTexture2D;
+    public static long lazyBindsSaved;
+
+    /** True while a lazy bind is pending on unit 0. */
+    public static boolean hasLazyTextureBind() {
+        return lazyTexture2D != 0;
+    }
+
+    /** Requests a 2D bind on the active unit, deferred until something needs it (see above). */
+    public static void glBindTexture2DLazily(int texture) {
+        if (texture == 0 || !isCachingEnabled() || ctx().activeTextureUnit.getValue() != 0
+            || DisplayListManager.getRecordMode() != RecordMode.NONE) {
+            glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            return;
+        }
+        if (lazyTexture2D != 0 && lazyTexture2D != texture) lazyBindsSaved++;
+        lazyTexture2D = texture;
+    }
+
+    /** Sends the pending lazy bind to the driver, if there is one. Cheap when there isn't. */
+    public static void flushLazyTextureBind() {
+        final int texture = lazyTexture2D;
+        if (texture == 0) return;
+        lazyTexture2D = 0;
+        final GLContextState glCtx = ctx();
+        final int unit = glCtx.activeTextureUnit.getValue();
+        if (unit != 0) {
+            // The flush happens on unit 0 whatever is active; callers that switch units flush before switching.
+            RENDER_BACKEND.activeTexture(GL13.GL_TEXTURE0);
+            mod(glCtx.activeTextureUnit).setValue(0);
+            glBindTexture(GL11.GL_TEXTURE_2D, texture);
+            RENDER_BACKEND.activeTexture(GL13.GL_TEXTURE0 + unit);
+            mod(glCtx.activeTextureUnit).setValue(unit);
+        } else {
+            glBindTexture(GL11.GL_TEXTURE_2D, texture);
+        }
+    }
+
+    /** Drops a pending lazy bind without sending it; the texture then simply isn't bound, as if never asked. */
+    public static void discardLazyTextureBind() {
+        if (lazyTexture2D != 0) {
+            lazyBindsSaved++;
+            lazyTexture2D = 0;
+        }
+    }
+
     private static int getBoundTexture(int unit) {
         return ctx().textures.getTextureUnitBindings(unit).getBinding();
     }
@@ -2347,6 +2410,14 @@ public class GLStateManager {
     public static void glBindTexture(int target, int texture) {
         if (TextureInfoCache.isProxyTarget(target)) return;
         final GLContextState glCtx = ctx();
+        if (lazyTexture2D != 0 && glCtx.activeTextureUnit.getValue() == 0) {
+            if (target == GL11.GL_TEXTURE_2D) {
+                if (lazyTexture2D != texture) lazyBindsSaved++;
+                lazyTexture2D = 0; // superseded by this real bind
+            } else {
+                flushLazyTextureBind();
+            }
+        }
         final RecordMode mode = DisplayListManager.getRecordMode();
         if (mode != RecordMode.NONE) {
             DisplayListManager.recordBindTexture(target, texture);
@@ -2431,6 +2502,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage2D(int target, int level, int internalformat, int width, int height, int border, int format, int type, IntBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -2450,6 +2522,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage2D(int target, int level, int internalformat, int width, int height, int border, int format, int type, FloatBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -2469,6 +2542,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage2D(int target, int level, int internalformat, int width, int height, int border, int format, int type, DoubleBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -2488,6 +2562,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage2D(int target, int level, int internalformat, int width, int height, int border, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -2507,6 +2582,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage2D(int target, int level, int internalformat, int width, int height, int border, int format, int type, long pixels_buffer_offset) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -2599,11 +2675,13 @@ public class GLStateManager {
     }
 
     public static void glDeleteTextures(int id) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         deferDeleteTexture(id);
         onDeleteTexture(id);
     }
 
     public static void glDeleteTextures(IntBuffer ids) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         for (int i = 0; i < ids.remaining(); i++) {
             final int id = ids.get(ids.position() + i);
             deferDeleteTexture(id);
@@ -2828,6 +2906,7 @@ public class GLStateManager {
     }
 
     public static void preDraw(GLContextState glCtx, int drawMode) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         prepareLineEmulation(glCtx, drawMode);
         glCtx.ffp.preDraw(glCtx);
         prepareClientArrays(glCtx);
@@ -4498,6 +4577,7 @@ public class GLStateManager {
     }
 
     public static void glCallList(int list) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (!GLDebug.isActive()) {
             DisplayListManager.glCallList(list);
             return;
@@ -5037,6 +5117,7 @@ public class GLStateManager {
     }
 
     public static void glPushAttrib(int mask) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         final RecordMode mode = DisplayListManager.getRecordMode();
         if (mode != RecordMode.NONE) {
             DisplayListManager.recordPushAttrib(mask);
@@ -5565,6 +5646,7 @@ public class GLStateManager {
     }
 
     public static void glTexParameter(int target, int pname, IntBuffer params) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (handleRemovedTexParam(target, pname, params.remaining() >= 1 ? params.get(params.position()) : 0)) return;
         if (params.remaining() >= 1) {
             final int val = params.get(params.position());
@@ -5578,6 +5660,7 @@ public class GLStateManager {
     }
 
     public static void glTexParameter(int target, int pname, FloatBuffer params) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (handleRemovedTexParam(target, pname, params.remaining() >= 1 ? (int) params.get(params.position()) : 0)) return;
         if (params.remaining() >= 1) {
             final float val = params.get(params.position());
@@ -5591,6 +5674,7 @@ public class GLStateManager {
     }
 
     public static void glTexParameteri(int target, int pname, int param) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (handleRemovedTexParam(target, pname, param)) return;
         param = remapTexClamp(pname, param);
         final RecordMode mode = DisplayListManager.getRecordMode();
@@ -5635,6 +5719,7 @@ public class GLStateManager {
     }
 
     public static void glTexParameterf(int target, int pname, float param) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (handleRemovedTexParam(target, pname, param > 0 ? (int) (param + 0.5f) : (int) (param - 0.5f))) return;
         param = remapTexClamp(pname, param);
         final RecordMode mode = DisplayListManager.getRecordMode();
@@ -5687,6 +5772,7 @@ public class GLStateManager {
     }
 
     public static int glGetTexParameteri(int target, int pname) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (target != GL11.GL_TEXTURE_2D || !isCachingEnabled()) {
             return RENDER_BACKEND.getTexParameteri(target, pname);
         }
@@ -5728,6 +5814,7 @@ public class GLStateManager {
     }
 
     public static int glGetTexLevelParameteri(int target, int level, int pname) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (target != GL11.GL_TEXTURE_2D || !isCachingEnabled()) {
             return RENDER_BACKEND.getTexLevelParameteri(target, level, pname);
         }
@@ -5761,6 +5848,7 @@ public class GLStateManager {
     }
 
     public static void glGetTexImage(int target, int level, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (RenderSystem.isGLES()) {
             getTexImageViaFboReadPixels(target, level, format, type, pixels);
             return;
@@ -5770,6 +5858,7 @@ public class GLStateManager {
         restorePixelPackBuffer();
     }
     public static void glGetTexImage(int target, int level, int format, int type, IntBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (RenderSystem.isGLES()) {
             getTexImageViaFboReadPixels(target, level, format, type, pixels);
             return;
@@ -5858,6 +5947,7 @@ public class GLStateManager {
         restorePixelPackBuffer();
     }
     public static void glTexStorage2D(int target, int levels, int internalFormat, int width, int height) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         RENDER_BACKEND.texStorage2D(target, levels, internalFormat, width, height);
         if (target == GL11.GL_TEXTURE_2D) {
             final boolean locked = acquireDrawLock();
@@ -6394,6 +6484,7 @@ public class GLStateManager {
 
     // Missing GL commands from Mesa cross-check
     public static void glTexImage1D(int target, int level, int internalformat, int width, int border, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -6406,6 +6497,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage3D(int target, int level, int internalformat, int width, int height, int depth, int border, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -6418,6 +6510,7 @@ public class GLStateManager {
     }
 
     public static void glTexImage3D(int target, int level, int internalformat, int width, int height, int depth, int border, int format, int type, IntBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalformat = changeFormatIfDeprecated(internalformat);
         type = remapPixelTypeForGLES(format, type);
         type = remapTypeForRemappedInternalFormat(internalformat, type);
@@ -6430,6 +6523,7 @@ public class GLStateManager {
     }
 
     public static void glTexSubImage1D(int target, int level, int xoffset, int width, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glTexSubImage1D");
         }
@@ -6633,6 +6727,7 @@ public class GLStateManager {
 
     // Texture commands
     public static void glTexSubImage2D(int target, int level, int xoffset, int yoffset, int width, int height, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         type = remapPixelTypeForGLES(format, type);
         final RecordMode mode = DisplayListManager.getRecordMode();
         if (mode != RecordMode.NONE) {
@@ -6649,6 +6744,7 @@ public class GLStateManager {
     }
 
     public static void glTexSubImage2D(int target, int level, int xoffset, int yoffset, int width, int height, int format, int type, IntBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         type = remapPixelTypeForGLES(format, type);
         final RecordMode mode = DisplayListManager.getRecordMode();
         if (mode != RecordMode.NONE) {
@@ -6665,6 +6761,7 @@ public class GLStateManager {
     }
 
     public static void glTexSubImage2D(int target, int level, int xoffset, int yoffset, int width, int height, int format, int type, long pixels_buffer_offset) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         type = remapPixelTypeForGLES(format, type);
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glTexSubImage2D with buffer offset");
@@ -6711,6 +6808,7 @@ public class GLStateManager {
     }
 
     public static void glTexSubImage3D(int target, int level, int xoffset, int yoffset, int zoffset, int width, int height, int depth, int format, int type, ByteBuffer pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glTexSubImage3D");
         }
@@ -6720,6 +6818,7 @@ public class GLStateManager {
     }
 
     public static void glCopyTexImage1D(int target, int level, int internalFormat, int x, int y, int width, int border) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glCopyTexImage1D");
         }
@@ -6727,6 +6826,7 @@ public class GLStateManager {
     }
 
     public static void glCopyTexImage2D(int target, int level, int internalFormat, int x, int y, int width, int height, int border) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         internalFormat = changeFormatIfDeprecated(internalFormat);
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glCopyTexImage2D");
@@ -6736,6 +6836,7 @@ public class GLStateManager {
     }
 
     public static void glCopyTexSubImage1D(int target, int level, int xoffset, int x, int y, int width) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glCopyTexSubImage1D");
         }
@@ -6743,6 +6844,7 @@ public class GLStateManager {
     }
 
     public static void glCopyTexSubImage2D(int target, int level, int xoffset, int yoffset, int x, int y, int width, int height) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glCopyTexSubImage2D");
         }
@@ -6752,6 +6854,7 @@ public class GLStateManager {
     }
 
     public static void glCopyTexSubImage3D(int target, int level, int xoffset, int yoffset, int zoffset, int x, int y, int width, int height) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         if (DisplayListManager.isRecording()) {
             throw DisplayListManager.unsupportedInList("glCopyTexSubImage3D");
         }
@@ -7015,6 +7118,7 @@ public class GLStateManager {
 
     // Display List Commands
     public static void glCallLists(IntBuffer lists) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         while (lists.hasRemaining()) {
             final int listId = lists.get() + ctx().listBase;
             glCallList(listId);
@@ -7022,6 +7126,7 @@ public class GLStateManager {
     }
 
     public static void glCallLists(ShortBuffer lists) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         while (lists.hasRemaining()) {
             final int listId = (lists.get() & 0xFFFF) + ctx().listBase;
             glCallList(listId);
@@ -7029,6 +7134,7 @@ public class GLStateManager {
     }
 
     public static void glCallLists(ByteBuffer lists) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         while (lists.hasRemaining()) {
             final int listId = (lists.get() & 0xFF) + ctx().listBase;
             glCallList(listId);
@@ -7971,6 +8077,7 @@ public class GLStateManager {
     }
 
     public static void glGenerateMipmap(int target) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         RENDER_BACKEND.generateMipmap(target);
     }
 
@@ -8898,6 +9005,7 @@ public class GLStateManager {
         RENDER_BACKEND.getUniformiv(program, location, params);
     }
     public static void glGetTexImage(int target, int level, int format, int type, long pixels) {
+        if (lazyTexture2D != 0) flushLazyTextureBind();
         RENDER_BACKEND.getTexImage(target, level, format, type, pixels);
     }
     public static void glReadPixels(int x, int y, int width, int height, int format, int type, long pixels) {

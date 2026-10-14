@@ -53,7 +53,7 @@ public final class HeldItemGlint {
         if (!eligible()) return false;
         final var mc = Minecraft.getMinecraft();
         final var texture = mc.getTextureManager().getTexture(TEXTURE);
-        if (texture == null || texture.getGlTextureId() != GLStateManager.getTextures().getTextureUnitBindings(0).getBinding()) return false;
+        if (texture == null || texture.getGlTextureId() != GLStateManager.getBoundTextureForServerState(0)) return false;
         return firstMatrix().equals(GLStateManager.getTextures().getTextureUnitMatrix(0), 0.000001f) && CombinedGlint.begin(secondMatrix());
     }
 
