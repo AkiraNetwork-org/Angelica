@@ -26,6 +26,16 @@ final class GlStreamingRing {
     private static final long SYNC_WAIT_SLICE_NANOS = 10_000_000L;
     private static final long SYNC_WAIT_TOTAL_NANOS = 5_000_000_000L;
 
+    /**
+     * Every live ring, so the frame end can fence and reclaim them all at once. Rings used to fence and poll
+     * after every draw ("endFrame" was called per draw by the instanced, particle and font renderers); each
+     * glFenceSync and each glClientWaitSync poll costs the driver real time, and a fight frame issued dozens of
+     * them: 8-15% of the frame on NVIDIA desktop cards and 32% on an RTX 2060 (stack-sampled). Now a ring is
+     * fenced once per frame, with the capacity/4 safety fence in reserve() still covering a frame that writes a
+     * lot, and the fence queue is polled once per frame.
+     */
+    private static final java.util.ArrayList<GlStreamingRing> ALL = new java.util.ArrayList<>();
+
     private final FenceQueue fences = new FenceQueue();
     private int writePos;
     private int remaining;
@@ -41,6 +51,16 @@ final class GlStreamingRing {
         this.mappedBuffer = mappedBuffer;
         this.mappedAddress = memAddress0(mappedBuffer);
         this.remaining = capacity;
+        ALL.add(this);
+    }
+
+    /** The real end of a frame: every ring fences what it wrote this frame and frees what the GPU has finished. */
+    public static void nextFrame() {
+        for (int i = 0, n = ALL.size(); i < n; i++) {
+            final GlStreamingRing ring = ALL.get(i);
+            ring.fence();
+            ring.reclaim();
+        }
     }
 
     static GlStreamingRing create(int target, int capacity) {
@@ -142,10 +162,12 @@ final class GlStreamingRing {
         reclaim();
     }
 
-    void endFrame() {
-        fence();
-        reclaim();
-    }
+    /**
+     * Called after a draw by the renderers that stream through this ring. It used to fence and poll here, on
+     * every draw; that now happens once per frame in {@link #nextFrame()}. Nothing to do per draw: reserve()
+     * already fences when a quarter of the ring is pending, and ensureRemaining() waits if the ring fills.
+     */
+    void endFrame() {}
 
     long address() { return mappedAddress; }
     ByteBuffer mapped() { return mappedBuffer; }
@@ -157,6 +179,7 @@ final class GlStreamingRing {
     int forcedReclaims() { return forcedReclaims; }
 
     void destroy() {
+        ALL.remove(this);
         while (!fences.isEmpty()) {
             GLStateManager.glDeleteSync(fences.firstId());
             fences.dequeue();

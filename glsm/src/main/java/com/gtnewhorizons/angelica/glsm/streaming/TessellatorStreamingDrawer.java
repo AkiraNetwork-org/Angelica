@@ -309,10 +309,9 @@ public class TessellatorStreamingDrawer {
         return String.format("%5dB", bytes);
     }
 
+    /** Called once per frame (MixinMinecraft): every streaming ring fences and reclaims here, not per draw. */
     public static void endFrame() {
-        if (persistentBuffer != null) {
-            persistentBuffer.postDraw();
-        }
+        GlStreamingRing.nextFrame();
     }
 
     /**
