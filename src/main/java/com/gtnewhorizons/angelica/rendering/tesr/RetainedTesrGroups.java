@@ -184,6 +184,32 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
             add(templateOrNull, mv, light, color, overlay, info);
         }
 
+        /**
+         * [Akira fork] {@code count} cube instances at once, sharing light, colour, overlay, scale and atlas slot:
+         * one capacity check and one matrix copy instead of per-piece list appends.
+         */
+        void addCubesBulk(TemplateBuffer[] templatesOrNull, CubeParams[][] cubeParams, float scale, float[] mvs, int count,
+            int light, int color, int overlay, EntityTextureAtlas.Slot atlasSlot) {
+            reserveMatrices(count);
+            System.arraycopy(mvs, 0, matrices, size * 16, count * 16);
+            if (templatesOrNull != null) templates.addElements(templates.size(), templatesOrNull, 0, count);
+            cubes.addElements(cubes.size(), cubeParams, 0, count);
+            final int slots = atlasSlots.size();
+            atlasSlots.size(slots + count);
+            if (atlasSlot != null) {
+                Arrays.fill(atlasSlots.elements(), slots, slots + count, atlasSlot);
+                anyAtlasSlot = true;
+            }
+            final int from = scales.size();
+            scales.size(from + count);
+            Arrays.fill(scales.elements(), from, from + count, scale);
+            fill(lights, count, light);
+            fill(colors, count, color);
+            fill(overlays, count, overlay);
+            infos.size(infos.size() + count);
+            size += count;
+        }
+
         void appendRange(InstanceColumns src, int start, int end, int light, int color, int overlay) {
             final int n = end - start;
             reserveMatrices(n);
@@ -813,6 +839,35 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
             return false;
         }
         GLStateManager.requireExitTextureFilter(inputs.textureId, inputs.material.isUnfilteredAtlas());
+        return true;
+    }
+
+    /**
+     * [Akira fork] One model's pieces under one layer and material, queued with a single group lookup, frame check
+     * and append (Akira's player renderer: a body is 7-13 pieces, an armour piece 1-5, all sharing everything but
+     * their matrix). Only the plain instanced-cubes path; returns false having queued nothing when the group isn't
+     * on it right now (probing, streaming, a shader material), and the caller queues the pieces one by one.
+     * {@code mvs} holds {@code count} model-view matrices, 16 floats each, in JOML's column-major order.
+     */
+    public boolean queueCubesBulk(TemplateBuffer[] templates, CubeParams[][] cubes, int count, float scale, RenderLayer layer,
+        TesrMaterial material, float[] mvs, int packedLight, int colorABGR, int overlayABGR, EntityTextureAtlas.Slot atlasSlot) {
+        if (count <= 0 || material.shader() != null) return false;
+        final Group group = groupFor(layer, material, 0);
+        if (!group.streamPath || !drawsInstanced(group) || group.probe != null && group.probe.probing) return false;
+        EntityShadowReplay.rejectForeignDraw();
+        touch(group, layer);
+        if (!group.streamPath || !drawsInstanced(group) || group.probe != null && group.probe.probing) return false;
+        group.queuedThisFrame = true;
+        final InstanceColumns cols = group.cubeColumns;
+        final TexRun run = group.openOrExtendRun(cols, null, false, keepsBaseUpload(null) && group.opaque);
+        final int first = cols.size;
+        cols.addCubesBulk(deferred != null ? templates : null, cubes, scale, mvs, count, packedLight, colorABGR, overlayABGR, atlasSlot);
+        int instances = 0;
+        for (int i = 0; i < count; i++) instances += cubes[i].length;
+        run.last.end = cols.size;
+        run.parts += count;
+        run.instances += instances;
+        if (glintCapture != null) glintCapture.record(group, cols, run, first, cols.size, instances);
         return true;
     }
 
