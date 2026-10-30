@@ -194,20 +194,40 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
             System.arraycopy(mvs, 0, matrices, size * 16, count * 16);
             if (templatesOrNull != null) templates.addElements(templates.size(), templatesOrNull, 0, count);
             cubes.addElements(cubes.size(), cubeParams, 0, count);
-            final int slots = atlasSlots.size();
-            atlasSlots.size(slots + count);
-            if (atlasSlot != null) {
-                Arrays.fill(atlasSlots.elements(), slots, slots + count, atlasSlot);
-                anyAtlasSlot = true;
+            // block copies from filled scratch rows: list.size(n) zero-fills before a fill, and Arrays.fill's call
+            // costs more than the 3-5 slots a model needs
+            if (BULK_LIGHT.length < count) growBulkScratch(count);
+            for (int i = 0; i < count; i++) {
+                BULK_LIGHT[i] = light;
+                BULK_COLOR[i] = color;
+                BULK_OVERLAY[i] = overlay;
+                BULK_SCALE[i] = scale;
+                BULK_SLOT[i] = atlasSlot;
             }
-            final int from = scales.size();
-            scales.size(from + count);
-            Arrays.fill(scales.elements(), from, from + count, scale);
-            fill(lights, count, light);
-            fill(colors, count, color);
-            fill(overlays, count, overlay);
-            infos.size(infos.size() + count);
+            atlasSlots.addElements(atlasSlots.size(), BULK_SLOT, 0, count);
+            anyAtlasSlot |= atlasSlot != null;
+            scales.addElements(scales.size(), BULK_SCALE, 0, count);
+            lights.addElements(lights.size(), BULK_LIGHT, 0, count);
+            colors.addElements(colors.size(), BULK_COLOR, 0, count);
+            overlays.addElements(overlays.size(), BULK_OVERLAY, 0, count);
+            infos.addElements(infos.size(), BULK_INFO, 0, count);
             size += count;
+        }
+
+        // [Akira fork] scratch rows for addCubesBulk (render thread only); BULK_INFO stays zeros
+        private static int[] BULK_LIGHT = new int[64], BULK_COLOR = new int[64], BULK_OVERLAY = new int[64];
+        private static float[] BULK_SCALE = new float[64];
+        private static EntityTextureAtlas.Slot[] BULK_SLOT = new EntityTextureAtlas.Slot[64];
+        private static long[] BULK_INFO = new long[64];
+
+        private static void growBulkScratch(int count) {
+            final int n = Math.max(count, BULK_LIGHT.length * 2);
+            BULK_LIGHT = new int[n];
+            BULK_COLOR = new int[n];
+            BULK_OVERLAY = new int[n];
+            BULK_SCALE = new float[n];
+            BULK_SLOT = new EntityTextureAtlas.Slot[n];
+            BULK_INFO = new long[n];
         }
 
         void appendRange(InstanceColumns src, int start, int end, int light, int color, int overlay) {
@@ -652,7 +672,9 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
     private long openScope;
     private DepthEqualSet openDepthEqualSet;
     private final ObjectArrayList<Group> openWriters = new ObjectArrayList<>();
-    private static final int RECENT_GROUPS = 4;
+    // [Akira fork] 16, not 4: one armoured player alone touches more groups than 4 (skin, armour layers 1 and 2,
+    // glint, held item), so every lookup missed and went to the hash maps (3% of a 20-player fight frame)
+    private static final int RECENT_GROUPS = 16;
     private final Group[] recentGroups = new Group[RECENT_GROUPS];
     private int recentGroupNext;
 
