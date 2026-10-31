@@ -1,0 +1,38 @@
+diff --git a/src/main/java/com/gtnewhorizon/gtnhlib/client/renderer/TessellatorManager.java b/src/main/java/com/gtnewhorizon/gtnhlib/client/renderer/TessellatorManager.java
+index 8d68100..7555330 100644
+--- a/src/main/java/com/gtnewhorizon/gtnhlib/client/renderer/TessellatorManager.java
++++ b/src/main/java/com/gtnewhorizon/gtnhlib/client/renderer/TessellatorManager.java
+@@ -80,7 +80,33 @@ public class TessellatorManager {
+     @Deprecated
+     private static boolean isInCompilingCallback = false;
+ 
++    // Akira: the render thread's own thread-local values, read from fields. get() is what every
++    // Tessellator.instance in the game turns into, and two or three ThreadLocal lookups per call were ~5% of a frame
++    // at a busy hub. These values are made once per thread and never replaced, so caching them changes nothing else.
++    private static LocalTessellator mainLocal;
++    private static ArrayList<CaptureState> mainStack;
++    private static CapturingTessellator mainCapturing;
++
+     public static Tessellator get() {
++        if (Thread.currentThread() == mainThread) {
++            LocalTessellator local = mainLocal;
++            if (local == null) {
++                local = mainLocal = localTessellator.get();
++                mainStack = captureStack.get();
++            }
++            if (local.active) {
++                return local;
++            }
++            if (!mainStack.isEmpty()) {
++                CapturingTessellator c = mainCapturing;
++                if (c == null) {
++                    c = mainCapturing = capturingTessellator.get();
++                }
++                return c;
++            }
++            if (hasDirectTessellator()) return getDirectTessellator();
++            return Tessellator.instance;
++        }
+         final LocalTessellator local = localTessellator.get();
+         if (local.active) {
+             return local;
