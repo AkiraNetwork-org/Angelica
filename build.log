@@ -1,0 +1,285 @@
+Downloading https://services.gradle.org/distributions/gradle-9.4.0-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%..............70%.............80%.............90%.............100%
+
+Welcome to Gradle 9.4.0!
+
+Here are the highlights of this release:
+ - Java 26 support
+ - Non-class-based JVM tests
+ - Enhanced console progress bar
+
+For more details see https://docs.gradle.org/9.4.0/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.4.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as no cached configuration is available for tasks: assemble
+
+> Configure project :buildSrc
+WARNING: Unsupported Kotlin plugin version.
+The `embedded-kotlin` and `kotlin-dsl` plugins rely on features of Kotlin `2.3.0` that might work differently than in the requested version `2.2.21`.
+Using the `kotlin-dsl` plugin together with a different Kotlin version (for example, by using the Kotlin Gradle plugin (`kotlin(jvm)`)) in the same project is not recommended.
+
+See https://docs.gradle.org/9.4.0/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin for more details on how the `kotlin-dsl` plugin works (same applies to `embedded-kotlin`).
+It applies a certain version of the `org.jetbrains.kotlin.jvm` plugin and also add a dependency on the Kotlin Standard Library.
+
+Applying other version of the `org.jetbrains.kotlin.jvm` plugin in the build and/or adding dependencies to different versions of the Kotlin Standard Library can cause incompatibilities.
+See https://docs.gradle.org/9.4.0/userguide/kotlin_dsl.html#sec:kotlin
+Kotlin does not yet support 25 JDK target, falling back to Kotlin JVM_24 JVM target
+
+> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+
+> Task :buildSrc:compileKotlin
+Kotlin does not yet support 25 JDK target, falling back to Kotlin JVM_24 JVM target
+w: ⚠️ Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks
+Inconsistent JVM-target compatibility detected for tasks 'compileJava' (25) and 'compileKotlin' (24).
+This will become an error in Gradle 8.0.
+Solution: Consider using JVM Toolchain: https://kotl.in/gradle/jvm/toolchain
+Learn more about JVM-target validation: https://kotl.in/gradle/jvm/target-validation
+
+
+> Task :buildSrc:pluginDescriptors
+> Task :buildSrc:processResources NO-SOURCE
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:classes UP-TO-DATE
+
+> Task :buildSrc:jar
+:jar: No valid plugin descriptors were found in META-INF/gradle-plugins
+
+> Configure project :
+Download https://launchermeta.mojang.com/mc/game/version_manifest.json
+You might want to check out './gradlew :faq' if your build fails.
+Build script update from 2.0.27 to 2.0.34 available! Run ./gradlew updateBuildScript
+Downloading data into the RFG cache from [https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp/1.7.10/mcp-1.7.10-srg.zip, https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp_stable/12-1.7.10/mcp_stable-12-1.7.10.zip]...
+Downloading data into the RFG cache from [https://maven.minecraftforge.net/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/forge-1.7.10-10.13.4.1614-1.7.10-userdev.jar]...
+Download https://piston-meta.mojang.com/v1/packages/ed5d8789ed29872ea2ef1c348302b0c55e3f3468/1.7.10.json
+
+> Task :extractDependencyATs SKIPPED
+> Task :compileInjectedInterfacesJava NO-SOURCE
+> Task :processInjectedInterfacesResources NO-SOURCE
+> Task :injectedInterfacesClasses UP-TO-DATE
+> Task :processApiResources NO-SOURCE
+> Task :injectTags
+> Task :compileInjectedTagsJava
+> Task :extractNatives2
+> Task :processInjectedTagsResources NO-SOURCE
+> Task :injectedTagsClasses
+> Task :processMcLauncherResources NO-SOURCE
+> Task :validateLombokForJava25
+> Task :generateForgeSrgMappings
+> Task :createMcLauncherFiles
+
+> Task :downloadVanillaJars
+Download https://launcher.mojang.com/v1/objects/e80d9b3bf5085002218d4be59e668bac718abbc6/client.jar
+Download https://launcher.mojang.com/v1/objects/952438ac4e01b4d115c5fc38f891710c4941df29/server.jar
+
+> Task :downloadFernflower
+Download https://files.minecraftforge.net/fernflower-fix-1.0.zip
+
+> Task :mergeVanillaSidedJars
+> Task :experimental-surround-runtime:compileJava
+> Task :glsm:processStubsResources NO-SOURCE
+> Task :processResources
+> Task :tracy-client:generateTracyTags
+> Task :experimental-surround-ap:compileJava
+> Task :experimental-surround-ap:processResources
+> Task :experimental-surround-ap:classes
+> Task :experimental-surround-ap:jar
+> Task :experimental-surround-runtime:processResources NO-SOURCE
+> Task :experimental-surround-runtime:classes
+> Task :experimental-surround-runtime:jar
+> Task :glsm:processResources
+> Task :lwjgl3-backend:processResources
+> Task :sdl-gpu:processResources
+> Task :tracy-client:processResources
+
+> Task :deobfuscateMergedJarToSrg
+Applying SpecialSource
+Loading 2 AccessTransformers
+Loading AccessTransformer /home/runner/.gradle/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/unpacked/src/main/resources/fml_at.cfg
+Loading AccessTransformer /home/runner/.gradle/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/unpacked/src/main/resources/forge_at.cfg
+INFO: merging AccessMap net/minecraft/item/ItemBlock/field_150939_a from AccessChange(clear=0, set=0, vis=1) with AccessChange(clear=0, set=0, vis=1)
+Renamed 0 AT entries
+
+> Task :sourcesJar
+> Task :experimental-surround-ap:assemble
+> Task :experimental-surround-runtime:assemble
+> Task :glsm:sourcesJar
+> Task :lwjgl3-backend:sourcesJar
+> Task :glsm:compileStubsJava
+> Task :glsm:stubsClasses
+
+> Task :deobfuscateMergedJarToSrg
+Applying Exceptor
+Cleaning up generated debuginfo
+
+> Task :moltenvk:compileJava
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+
+> Task :moltenvk:extractMoltenVK
+> Task :moltenvk:processResources
+> Task :moltenvk:classes
+> Task :moltenvk:jar
+> Task :moltenvk:assemble
+> Task :sdl-gpu:sourcesJar
+> Task :tracy-client:sourcesJar
+
+> Task :decompileSrgJar
+Didn't find cached decompiled jar, decompiling and saving to /home/runner/.gradle/caches/retro_futura_gradle/fernflower-cache/f857d0a5dc440e9576a099ffe2dcf0f57f62ec6a9a90cdd7e8a27d4573e0504b-d253f2106b6c42cd09e68e3eb271a05bffc1063ab065ac1a7425f1586d3b5891.jar
+Decompiling the srg jar with fernflower
+
+> Task :compileMcLauncherJava
+> Task :mcLauncherClasses
+> Task :packageMcLauncher
+
+> Task :glsm:compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :lwjgl3-backend:compileJava
+> Task :tracy-client:compileJava
+> Task :glsm:classes
+> Task :glsm:jar
+> Task :lwjgl3-backend:classes
+> Task :lwjgl3-backend:jar
+> Task :tracy-client:classes
+> Task :tracy-client:jar
+> Task :glsm:assemble
+> Task :lwjgl3-backend:assemble
+> Task :tracy-client:assemble
+
+> Task :glsm:compileTestFixturesJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :sdl-gpu:compileJava
+/home/runner/work/Angelica/Angelica/sdl-gpu/src/main/java/com/gtnewhorizons/angelica/sdlgpu/util/MemoryAccess.java:24: warning: [removal] arrayBaseOffset(Class<?>) in Unsafe has been deprecated and marked for removal
+        FLOAT_ARRAY_BASE_OFFSET = (u != null) ? u.arrayBaseOffset(float[].class) : 0L;
+                                                 ^
+/home/runner/work/Angelica/Angelica/sdl-gpu/src/main/java/com/gtnewhorizons/angelica/sdlgpu/util/MemoryAccess.java:41: warning: [removal] putLong(long,long) in Unsafe has been deprecated and marked for removal
+                unsafe.putLong(probe, 0L);
+                      ^
+/home/runner/work/Angelica/Angelica/sdl-gpu/src/main/java/com/gtnewhorizons/angelica/sdlgpu/util/MemoryAccess.java:42: warning: [removal] getLong(long) in Unsafe has been deprecated and marked for removal
+                unsafe.getLong(probe);
+                      ^
+/home/runner/work/Angelica/Angelica/sdl-gpu/src/main/java/com/gtnewhorizons/angelica/sdlgpu/util/MemoryAccess.java:106: warning: [removal] copyMemory(Object,long,Object,long,long) in Unsafe has been deprecated and marked for removal
+            UNSAFE.copyMemory(src, FLOAT_ARRAY_BASE_OFFSET + ((long) srcOff) * 4L,
+                  ^
+Note: /home/runner/work/Angelica/Angelica/sdl-gpu/src/main/java/com/gtnewhorizons/angelica/sdlgpu/SDLGPURenderBackend.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 warnings
+
+> Task :sdl-gpu:classes
+> Task :sdl-gpu:jar
+> Task :sdl-gpu:assemble
+
+> Task :decompileSrgJar
+  Decompiling took 42474 ms
+
+> Task :cleanupDecompSrgJar
+Fixup stage 1 - applying FF patches
+  Stage 1 took 2785 ms
+Fixup stage 2 - applying MCP patches
+  Stage 2 took 61 ms
+Fixup stage 3 - applying MCP cleanup
+  Stage 3 took 3985 ms
+Saving the fixed-up jar
+
+> Task :patchDecompiledJar
+Patching sources: 2 patch archives, 2 injection directories
+Applied 311 patches
+
+> Task :applyJST
+Applying access transformers: [/home/runner/work/Angelica/Angelica/src/main/resources/META-INF/angelica_at.cfg, /home/runner/work/Angelica/Angelica/src/main/resources/META-INF/notfine_at.cfg, /home/runner/work/Angelica/Angelica/src/main/resources/META-INF/archaicfix_at.cfg, /home/runner/work/Angelica/Angelica/src/main/resources/META-INF/mcpatcherforge_at.cfg]
+Access transformer PUBLIC REMOVEFINAL /home/runner/work/Angelica/Angelica/src/main/resources/META-INF/archaicfix_at.cfg:16, targeting net.minecraft.client.resources.SkinManager$2 FIELD field_152636_b did not apply as its target doesn't exist
+
+> Task :remapDecompiledJar
+Applied 589 missing generics
+
+> Task :decompressDecompiledSources
+> Task :processPatchedMcResources
+
+> Task :compilePatchedMcJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :patchedMcClasses
+> Task :compileApiJava NO-SOURCE
+> Task :apiClasses UP-TO-DATE
+> Task :packagePatchedMc
+
+> Task :compileJava
+/home/runner/work/Angelica/Angelica/src/main/java/com/prupe/mcpatcher/hd/FancyDial.java:503: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() throws Throwable {
+                   ^
+/home/runner/work/Angelica/Angelica/src/main/java/com/prupe/mcpatcher/hd/FancyDial.java:505: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        super.finalize();
+             ^
+/home/runner/work/Angelica/Angelica/src/main/java/com/prupe/mcpatcher/hd/FancyDial.java:725: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        protected void finalize() throws Throwable {
+                       ^
+/home/runner/work/Angelica/Angelica/src/main/java/com/prupe/mcpatcher/hd/FancyDial.java:727: warning: [removal] finalize() in Object has been deprecated and marked for removal
+            super.finalize();
+                 ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+4 warnings
+
+> Task :classes
+> Task :compileIdeVirtualMainJava SKIPPED
+> Task :apiJar
+> Task :downgradeApiJar
+
+> Task :compileMixinJava
+/home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/celeritas/features/textures/MixinStitcherHolder.java:13: warning: Mixin target net.minecraft.client.renderer.texture.Stitcher$Holder is public and should be specified in value
+@Mixin(targets = "net.minecraft.client.renderer.texture.Stitcher$Holder")
+^
+/home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/angelica/tesr/MixinTileEntityEnderChestRenderer.java:23: warning: Cannot find target method "bindTexture(Lnet/minecraft/util/ResourceLocation;)V" for @Inject.method="bindTexture(Lnet/minecraft/util/ResourceLocation;)V" in net.minecraft.client.renderer.tileentity.TileEntityEnderChestRenderer
+    @Inject(method = "bindTexture(Lnet/minecraft/util/ResourceLocation;)V", at = @At("HEAD"), require = 1)
+    ^
+/home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/angelica/tesr/MixinTileEntityChestRenderer.java:24: warning: Cannot find target method "bindTexture(Lnet/minecraft/util/ResourceLocation;)V" for @Inject.method="bindTexture(Lnet/minecraft/util/ResourceLocation;)V" in net.minecraft.client.renderer.tileentity.TileEntityChestRenderer
+    @Inject(method = "bindTexture(Lnet/minecraft/util/ResourceLocation;)V", at = @At("HEAD"), require = 1)
+    ^
+/home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/angelica/gui/MixinGuiMainMenu.java:22: warning: PUBLIC @Overwrite method will upgrade visibility of PRIVATE method in net.minecraft.client.gui.GuiMainMenu
+    @Overwrite
+    ^
+/home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/angelica/optimizations/MixinRenderBiped_ArmorResource.java:22: warning: @Overwrite is missing javadoc comment
+    public static ResourceLocation getArmorResource(Entity entity, ItemStack stack, int slot, String type) {
+                                   ^
+/home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/celeritas/frustum/MixinFrustrum.java:53: warning: @Overwrite is missing javadoc comment
+    public boolean isBoxInFrustum(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+                   ^
+warning: Unable to determine descriptor for @Surround target method
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /home/runner/work/Angelica/Angelica/src/mixin/java/com/gtnewhorizons/angelica/mixins/early/angelica/textures/MixinTextureMap_ParallelLoad.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+7 warnings
+
+> Task :compileTestJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :processMixinResources
+> Task :mixinClasses
+> Task :jar
+> Task :shadowJar
+> Task :downgradeJar
+> Task :reobfJar
+> Task :assemble
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1793408571462.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/Angelica/Angelica/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 6m 20s
+64 actionable tasks: 64 executed
+Configuration cache entry stored.
