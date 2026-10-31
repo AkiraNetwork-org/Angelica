@@ -1,0 +1,157 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.7.1-bin.zip
+..............10%..............20%...............30%..............40%...............50%..............60%...............70%..............80%..............90%...............100%
+
+Welcome to Gradle 9.7.1!
+
+Here are the highlights of this release:
+ - Isolated Projects graduates to incubating
+ - Broader Configuration Cache compatibility
+ - Resilient Sync helps you fix broken builds
+ - More source locations in problem reports
+
+For more details see https://docs.gradle.org/9.7.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as no cached configuration is available for tasks: assemble
+
+> Configure project :
+Download https://launchermeta.mojang.com/mc/game/version_manifest.json
+Version override set to 0.11.54.1!
+You might want to check out './gradlew :faq' if your build fails.
+w: file:///home/runner/work/Angelica/Angelica/gtnhlib-src/build.gradle.kts:17:26: 'fun provideDelegate(thisRef: Any?, property: KProperty<*>): ExistingDomainObjectDelegate<SourceSet>' is deprecated. Use 'val element = create(name)' instead. See the Gradle 9.6 upgrading guide.
+w: file:///home/runner/work/Angelica/Angelica/gtnhlib-src/build.gradle.kts:17:26: 'fun <T : Any> NamedDomainObjectContainer<T>.creating(configuration: T.() -> Unit): NamedDomainObjectContainerCreatingDelegateProvider<T>' is deprecated. Use 'val element = create(name) { }' instead. See the Gradle 9.6 upgrading guide.
+w: file:///home/runner/work/Angelica/Angelica/gtnhlib-src/build.gradle.kts:17:26: 'fun <T> ExistingDomainObjectDelegate<out T>.getValue(receiver: Any?, property: KProperty<*>): T' is deprecated. Use the named() API instead. See the Gradle 9.6 upgrading guide.
+Downloading data into the RFG cache from [https://maven.minecraftforge.net/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/forge-1.7.10-10.13.4.1614-1.7.10-userdev.jar]...
+Downloading data into the RFG cache from [https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp/1.7.10/mcp-1.7.10-srg.zip, https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp_stable/12-1.7.10/mcp_stable-12-1.7.10.zip]...
+Download https://piston-meta.mojang.com/v1/packages/ed5d8789ed29872ea2ef1c348302b0c55e3f3468/1.7.10.json
+
+> Task :extractDependencyATs SKIPPED
+> Task :compileInjectedInterfacesJava NO-SOURCE
+> Task :processInjectedInterfacesResources NO-SOURCE
+> Task :injectedInterfacesClasses UP-TO-DATE
+> Task :processApiResources NO-SOURCE
+> Task :injectTags
+
+> Task :downloadVanillaJars
+Download https://launcher.mojang.com/v1/objects/e80d9b3bf5085002218d4be59e668bac718abbc6/client.jar
+Download https://launcher.mojang.com/v1/objects/952438ac4e01b4d115c5fc38f891710c4941df29/server.jar
+
+> Task :downloadFernflower
+Download https://files.minecraftforge.net/fernflower-fix-1.0.zip
+
+> Task :generateForgeSrgMappings
+> Task :processInjectedTagsResources NO-SOURCE
+> Task :processMcLauncherResources NO-SOURCE
+> Task :processMain17Resources NO-SOURCE
+> Task :extractNatives2
+> Task :createMcLauncherFiles
+> Task :sourcesJar
+> Task :mergeVanillaSidedJars
+> Task :compileInjectedTagsJava
+> Task :injectedTagsClasses
+
+> Task :deobfuscateMergedJarToSrg
+Applying SpecialSource
+Loading 2 AccessTransformers
+Loading AccessTransformer /home/runner/.gradle/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/unpacked/src/main/resources/fml_at.cfg
+Loading AccessTransformer /home/runner/.gradle/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/unpacked/src/main/resources/forge_at.cfg
+INFO: merging AccessMap net/minecraft/item/ItemBlock/field_150939_a from AccessChange(clear=0, set=0, vis=1) with AccessChange(clear=0, set=0, vis=1)
+Renamed 0 AT entries
+Applying Exceptor
+Cleaning up generated debuginfo
+
+> Task :decompileSrgJar
+Didn't find cached decompiled jar, decompiling and saving to /home/runner/.gradle/caches/retro_futura_gradle/fernflower-cache/f857d0a5dc440e9576a099ffe2dcf0f57f62ec6a9a90cdd7e8a27d4573e0504b-d253f2106b6c42cd09e68e3eb271a05bffc1063ab065ac1a7425f1586d3b5891.jar
+Decompiling the srg jar with fernflower
+
+> Task :compileMcLauncherJava
+> Task :mcLauncherClasses
+> Task :packageMcLauncher
+
+> Task :decompileSrgJar
+  Decompiling took 23441 ms
+
+> Task :cleanupDecompSrgJar
+Fixup stage 1 - applying FF patches
+  Stage 1 took 1882 ms
+Fixup stage 2 - applying MCP patches
+  Stage 2 took 37 ms
+Fixup stage 3 - applying MCP cleanup
+  Stage 3 took 2862 ms
+Saving the fixed-up jar
+
+> Task :patchDecompiledJar
+Patching sources: 2 patch archives, 2 injection directories
+Applied 311 patches
+
+> Task :applyJST
+Applying access transformers: [/home/runner/work/Angelica/Angelica/gtnhlib-src/src/main/resources/META-INF/gtnhlib_at.cfg]
+
+> Task :remapDecompiledJar
+Applied 589 missing generics
+
+> Task :decompressDecompiledSources
+> Task :processPatchedMcResources
+
+> Task :compilePatchedMcJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :patchedMcClasses
+> Task :compileApiJava NO-SOURCE
+> Task :apiClasses UP-TO-DATE
+> Task :packagePatchedMc
+
+> Task :compileJava
+Jabel: initialized
+Note: SpongePowered MIXIN Annotation Processor Version=0.8.7
+Note: Supported obfuscation types: ObfuscationServiceMCP supports [searge,notch]
+Note: Loading searge mappings from /home/runner/.gradle/caches/minecraft/net/minecraftforge/forge/1.7.10-10.13.4.1614-1.7.10/unpacked/srgs/mcp-srg.srg
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+/home/runner/work/Angelica/Angelica/gtnhlib-src/src/main/java/com/gtnewhorizon/gtnhlib/mixins/early/MixinBlockFlowerPot.java:25: warning: Unable to locate obfuscation mapping for @Shadow method
+    @Shadow
+    ^
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing searge output SRGs to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.srg
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing searge output SRGs to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.srg
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing searge output SRGs to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.srg
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing refmap to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.gtnhlib.refmap.json
+Note: Writing searge output SRGs to /home/runner/work/Angelica/Angelica/gtnhlib-src/build/tmp/mixins/mixins.srg
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+1 warning
+
+> Task :processResources
+> Task :classes
+> Task :apiJar
+> Task :compileMain17Java
+> Task :main17Classes
+> Task :jar
+> Task :shadowJar
+> Task :reobfJar
+> Task :assemble
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1793408566147.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/Angelica/Angelica/gtnhlib-src/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 2m 21s
+28 actionable tasks: 28 executed
+Configuration cache entry stored.
