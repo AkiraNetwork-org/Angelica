@@ -12,6 +12,7 @@ import com.gtnewhorizons.angelica.glsm.GLSMPrograms;
 import com.gtnewhorizons.angelica.glsm.GLSMTextures;
 import com.gtnewhorizons.angelica.glsm.GLStateManager;
 import com.gtnewhorizons.angelica.glsm.ffp.InstancedAttribs;
+import com.gtnewhorizons.angelica.glsm.ffp.CubeInstancedAttribs;
 import com.gtnewhorizons.angelica.glsm.ffp.CubeParams;
 import com.gtnewhorizons.angelica.glsm.ffp.CombinedGlint;
 import com.gtnewhorizons.angelica.glsm.ffp.Instancing;
@@ -28,6 +29,7 @@ import net.minecraft.util.ResourceLocation;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector3f;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.nio.ByteBuffer;
@@ -35,6 +37,11 @@ import java.util.Arrays;
 import java.util.function.LongSupplier;
 
 import static com.gtnewhorizon.gtnhlib.bytebuf.MemoryUtilities.memAddress0;
+import static com.gtnewhorizon.gtnhlib.bytebuf.MemoryUtilities.memCopy;
+import static com.gtnewhorizon.gtnhlib.bytebuf.MemoryUtilities.memGetFloat;
+import static com.gtnewhorizon.gtnhlib.bytebuf.MemoryUtilities.memGetLong;
+import static com.gtnewhorizon.gtnhlib.bytebuf.MemoryUtilities.memPutFloat;
+import static com.gtnewhorizon.gtnhlib.bytebuf.MemoryUtilities.memPutLong;
 
 final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
 
@@ -525,6 +532,25 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
         ByteBuffer scratch;
         int meshBytes;
 
+        // [Akira fork] cube instances queued already encoded (queueCubeRecords): rawCubeInstances whole
+        // CubeInstancedAttribs records at the start of rawCubes, drawn with the group's cube columns
+        ByteBuffer rawCubes;
+        int rawCubeInstances;
+
+        /**
+         * Room for {@code extra} more records after the ones held (which are kept); the address of the next one.
+         */
+        long rawCubeAddress(int extra) {
+            final int have = rawCubeInstances * CubeInstancedAttribs.STRIDE;
+            final int need = have + extra * CubeInstancedAttribs.STRIDE;
+            if (rawCubes == null || rawCubes.capacity() < need) {
+                final ByteBuffer grown = BufferUtils.createByteBuffer(Math.max(4096, Integer.highestOneBit(need - 1) << 1));
+                if (have > 0) memCopy(memAddress0(rawCubes), memAddress0(grown), have);
+                rawCubes = grown;
+            }
+            return memAddress0(rawCubes) + have;
+        }
+
         void addTexMatrix(Matrix4f src) {
             if (src == null) {
                 instTexMatrices.add(null);
@@ -649,6 +675,7 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
             instTexMatrices.clear();
             texMatrixPoolUsed = 0;
             runPoolUsed = 0;
+            rawCubeInstances = 0;
         }
 
         Group(RenderLayer layer, TesrMaterial material, int blockEntityId, DrawStateKey state) {
@@ -895,6 +922,143 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
 
     private boolean keepsBaseUpload(InstanceRange replayed) {
         return replayed != null && replayed.reuseUpload || glintCapture != null && glintCapture.keepsBaseUpload();
+    }
+
+    // ---- [Akira fork] cube instances kept encoded -----------------------------------------------------------
+    //
+    // Akira's "player animation rate" queues a player again from what its last full draw queued, under the
+    // player's matrix now. Through replayInstances that is, per player per frame, some six appends of eight
+    // columns each and then the same instances read back out of the columns and encoded for the GPU at the flush.
+    // Here the instances are encoded once, when recorded (encodeCubeRecords: the three matrix rows as floats, the
+    // rest of the record as it goes to the GPU), and queueing them again is one multiply of the rows and one copy
+    // of the rest per instance, written where the flush uploads from (Group.rawCubes).
+
+    /** Floats per instance in a rows array: the record's three matrix rows. */
+    public static final int RECORD_ROW_FLOATS = 12;
+    /** Longs per instance in a tails array: the record after its rows (colour, overlay, ids, lightmap, texture). */
+    public static final int RECORD_TAIL_LONGS = (CubeInstancedAttribs.STRIDE - 48) / 8;
+
+    private static final ByteBuffer RECORD_SCRATCH = BufferUtils.createByteBuffer(CubeInstancedAttribs.STRIDE);
+
+    /**
+     * Encodes the cube instances of pieces [start, end) of {@code src} as {@link InstancedTemplateRenderer} would
+     * for the GPU, under {@code slot} (or the whole texture), into {@code rows} and {@code tails} from instance
+     * {@code at} on. Returns the instance index after the last one written.
+     */
+    public static int encodeCubeRecords(InstanceColumns src, int start, int end, EntityTextureAtlas.Slot slot, float[] rows,
+        long[] tails, int at) {
+        final long p = memAddress0(RECORD_SCRATCH);
+        final EntityTextureAtlas.Slot region = slot != null ? slot : EntityTextureAtlas.Slot.WHOLE_TEXTURE;
+        for (int i = start; i < end; i++) {
+            final float scale = src.scales.getFloat(i);
+            final int color = src.colors.getInt(i);
+            final int light = src.lights.getInt(i);
+            final int overlay = src.overlays.getInt(i);
+            final long info = src.infos.getLong(i);
+            for (final CubeParams cube : src.cubes.get(i)) {
+                cube.writeRows(p, src.matrices, i * 16, scale);
+                InstancedAttribs.writeTail(p, color, overlay, info);
+                InstancedAttribs.writeLightmap(p + CubeInstancedAttribs.OFFSET_LIGHTMAP_SCALE, light);
+                cube.writeTexture(p, region.u, region.v, region.w, region.h);
+                for (int k = 0, r = at * RECORD_ROW_FLOATS; k < RECORD_ROW_FLOATS; k++) {
+                    rows[r + k] = memGetFloat(p + InstancedAttribs.OFFSET_ROWS + k * 4L);
+                }
+                for (int k = 0, t = at * RECORD_TAIL_LONGS; k < RECORD_TAIL_LONGS; k++) {
+                    tails[t + k] = memGetLong(p + 48 + k * 8L);
+                }
+                at++;
+            }
+        }
+        return at;
+    }
+
+    private Group[] recordGroups = new Group[8];
+
+    private boolean takesCubeRecords(Group group) {
+        return group.streamPath && drawsInstanced(group) && (group.probe == null || !group.probe.probing);
+    }
+
+    /**
+     * Queues encoded cube instances ({@link #encodeCubeRecords}) again, each one's matrix multiplied by
+     * {@code transform} (affine). Segment {@code s} is instances [ends[s - 1], ends[s]) and goes to
+     * {@code layers[s]}; all under {@code material}, with no texture matrix. All or nothing: false, having queued
+     * none, when any of the groups isn't on the plain instanced-cubes path right now (a shader pack, a glint
+     * capture, probing), and the caller queues them some other way.
+     */
+    public boolean queueCubeRecords(RenderLayer[] layers, int[] ends, int segments, TesrMaterial material, float[] rows,
+        long[] tails, Matrix4fc transform) {
+        if (segments <= 0 || deferred != null || glintCapture != null || material.shader() != null || !instancedActive) return false;
+        if (segments > recordGroups.length) recordGroups = new Group[segments * 2];
+        final Group[] targets = recordGroups;
+        for (int s = 0; s < segments; s++) {
+            final Group group = groupFor(layers[s], material, 0);
+            if (!takesCubeRecords(group)) return false;
+            touch(group, layers[s]);
+            if (!takesCubeRecords(group)) return false;
+            targets[s] = group;
+        }
+        EntityShadowReplay.rejectForeignDraw();
+        final float t00 = transform.m00(), t01 = transform.m01(), t02 = transform.m02();
+        final float t10 = transform.m10(), t11 = transform.m11(), t12 = transform.m12();
+        final float t20 = transform.m20(), t21 = transform.m21(), t22 = transform.m22();
+        final float t30 = transform.m30(), t31 = transform.m31(), t32 = transform.m32();
+        int i = 0;
+        for (int s = 0; s < segments; s++) {
+            final Group group = targets[s];
+            targets[s] = null;
+            final int end = ends[s];
+            final int n = end - i;
+            if (n <= 0) continue;
+            group.queuedThisFrame = true;
+            long ptr = group.rawCubeAddress(n) + InstancedAttribs.OFFSET_ROWS;
+            for (; i < end; i++, ptr += CubeInstancedAttribs.STRIDE) {
+                // the record's rows are the matrix's rows (x y z and translation each): new = transform * old
+                final int r = i * RECORD_ROW_FLOATS;
+                final float a0 = rows[r], a1 = rows[r + 1], a2 = rows[r + 2], a3 = rows[r + 3];
+                final float b0 = rows[r + 4], b1 = rows[r + 5], b2 = rows[r + 6], b3 = rows[r + 7];
+                final float c0 = rows[r + 8], c1 = rows[r + 9], c2 = rows[r + 10], c3 = rows[r + 11];
+                memPutFloat(ptr, t00 * a0 + t10 * b0 + t20 * c0);
+                memPutFloat(ptr + 4, t00 * a1 + t10 * b1 + t20 * c1);
+                memPutFloat(ptr + 8, t00 * a2 + t10 * b2 + t20 * c2);
+                memPutFloat(ptr + 12, t00 * a3 + t10 * b3 + t20 * c3 + t30);
+                memPutFloat(ptr + 16, t01 * a0 + t11 * b0 + t21 * c0);
+                memPutFloat(ptr + 20, t01 * a1 + t11 * b1 + t21 * c1);
+                memPutFloat(ptr + 24, t01 * a2 + t11 * b2 + t21 * c2);
+                memPutFloat(ptr + 28, t01 * a3 + t11 * b3 + t21 * c3 + t31);
+                memPutFloat(ptr + 32, t02 * a0 + t12 * b0 + t22 * c0);
+                memPutFloat(ptr + 36, t02 * a1 + t12 * b1 + t22 * c1);
+                memPutFloat(ptr + 40, t02 * a2 + t12 * b2 + t22 * c2);
+                memPutFloat(ptr + 44, t02 * a3 + t12 * b3 + t22 * c3 + t32);
+                for (int k = 0, t = i * RECORD_TAIL_LONGS; k < RECORD_TAIL_LONGS; k++) {
+                    memPutLong(ptr + 48 + k * 8L, tails[t + k]);
+                }
+            }
+            group.rawCubeInstances += n;
+        }
+        return true;
+    }
+
+    /**
+     * One template instance of {@code src} queued again, its matrix multiplied by {@code transform}: what
+     * {@link #replayInstances} does for a range of one, without the range appends. False, having queued nothing,
+     * when the group isn't drawing instanced right now.
+     */
+    public boolean replayTemplate(InstanceColumns src, int index, RenderLayer layer, TesrMaterial material, Matrix4fc transform) {
+        if (glintCapture != null || !src.cubes.isEmpty() || !streamsInstanced(material)) return false;
+        final Group group = groupFor(layer, material, 0);
+        touch(group, layer);
+        if (!drawsInstanced(group) || group.probe != null && group.probe.probing) return false;
+        EntityShadowReplay.rejectForeignDraw();
+        group.queuedThisFrame = true;
+        final InstanceColumns dst = group.templateColumns;
+        final TexRun run = group.openOrExtendRun(dst, null, false, false);
+        transform.mul(src.pose(index, replayModelView), replayModelView);
+        dst.add(src.templates.get(index), replayModelView, src.lights.getInt(index), src.colors.getInt(index),
+            src.overlays.getInt(index), src.infos.getLong(index));
+        run.last.end = dst.size;
+        run.parts++;
+        run.instances++;
+        return true;
     }
 
     private InstanceColumns storeModel(long scope, TemplateBuffer template, CubeParams[] cubes, float scale, RenderLayer layer, TesrMaterial material, Matrix4f currentMV, int packedLight, int colorABGR, int overlayABGR, long entityInfo, int id, Matrix4f texMatrix, EntityTextureAtlas.Slot atlasSlot, InstanceRange replayed) {
@@ -1357,11 +1521,11 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
     private static final int NEED_CUBE = 2;
 
     private boolean live(Group g) {
-        return g.frameMark == frameMark && (g.templateColumns.hasInstances() || g.cubeColumns.hasInstances());
+        return g.frameMark == frameMark && (g.templateColumns.hasInstances() || g.cubeColumns.hasInstances() || g.rawCubeInstances > 0);
     }
 
     private static boolean queuedInstanced(Group g) {
-        return !g.templateColumns.runs.isEmpty() || !g.cubeColumns.runs.isEmpty();
+        return !g.templateColumns.runs.isEmpty() || !g.cubeColumns.runs.isEmpty() || g.rawCubeInstances > 0;
     }
 
     private boolean anyQueuedInstanced(ObjectArrayList<Group> list) {
@@ -1388,7 +1552,7 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
                     drawInstancesCpu(group, group.templateColumns);
                 }
             }
-            if (group.cubeColumns.hasInstances()) {
+            if (group.cubeColumns.hasInstances() || group.rawCubeInstances > 0) {
                 if (cubeAvailable) {
                     need |= NEED_CUBE;
                 } else if (matrixAvailable && !group.cubeColumns.anyAtlasSlot) {
@@ -1428,7 +1592,7 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
     private void drawCubeVariant(ObjectArrayList<Group> list) {
         for (int i = 0, n = list.size(); i < n; i++) {
             final Group group = list.get(i);
-            if (!live(group) || !queuedInstanced(group) || !group.cubeColumns.hasInstances()) continue;
+            if (!live(group) || !queuedInstanced(group) || !group.cubeColumns.hasInstances() && group.rawCubeInstances == 0) continue;
             drawCubeInstances(group);
         }
         restoreTexMatrix();
@@ -1549,6 +1713,9 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
 
     private void drawCubeInstances(Group group) {
         final InstanceColumns cols = group.cubeColumns;
+        // [Akira fork] the group's already encoded instances (queueCubeRecords) go out in the same draw as the
+        // first run of its own columns that draws as they do (no texture matrix), or in one of their own
+        int raw = group.rawCubeInstances;
         for (int r = 0, n = cols.runs.size(); r < n; r++) {
             final TexRun run = cols.runs.get(r);
             applyTexMatrix(run);
@@ -1557,6 +1724,12 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
                 if (canRedraw(run)) {
                     instanced.redrawCubes(run.sourceRun.uploadOffset, run.instances, run.color);
                     redrawnInstances += run.instances;
+                } else if (raw > 0 && !combined && run.identity && run.source == null) {
+                    group.rawCubeAddress(run.instances);
+                    run.uploadOffset = instanced.drawCubesAfter(group.rawCubes, raw, cols, run);
+                    cubeInstances += raw;
+                    raw = 0;
+                    if (run.glintBase) recordUpload(run);
                 } else {
                     run.uploadOffset = instanced.drawCubes(cols, run);
                     if (run.glintBase) recordUpload(run);
@@ -1567,6 +1740,12 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
                 if (combined) CombinedGlint.end();
             }
             if (combined) r++;
+        }
+        if (raw > 0) {
+            if (texApplied) GLSMMatrices.setTextureMatrix(0, IDENTITY);
+            instanced.drawEncodedCubes(group.rawCubes, raw);
+            instancedDraws++;
+            cubeInstances += raw;
         }
     }
 
@@ -1753,6 +1932,7 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
                 final Group group = list.get(i);
                 bytes += group.meshBytes;
                 if (group.scratch != null) bytes += group.scratch.capacity();
+                if (group.rawCubes != null) bytes += group.rawCubes.capacity();
             }
         }
         return bytes;

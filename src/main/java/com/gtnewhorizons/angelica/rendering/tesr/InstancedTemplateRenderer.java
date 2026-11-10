@@ -170,10 +170,45 @@ final class InstancedTemplateRenderer {
 
     /** Returns the ring offset of the uploaded instances, for {@link #redrawCubes}. */
     long drawCubes(InstanceColumns cols, TexRun run) {
-        final InstanceColumns data = run.source != null ? run.source : cols;
         staging = MeshBuffer.ensureCapacity(staging, run.instances * CubeInstancedAttribs.STRIDE, false);
         final long base = memAddress0(staging);
-        long ptr = base;
+        final long ptr = encodeCubes(cols, run, base);
+        final long ringBase = uploadStaging(base, ptr, CubeInstancedAttribs.STRIDE);
+        drawUploadedCubes(ringBase, run.instances);
+        return ringBase;
+    }
+
+    /**
+     * [Akira fork] As {@link #drawCubes}, in one draw with the {@code encodedInstances} records already at the
+     * start of {@code encoded} (which has room for the run's after them). Returns the ring offset of the run's own
+     * instances, for {@link #redrawCubes}.
+     */
+    long drawCubesAfter(ByteBuffer encoded, int encodedInstances, InstanceColumns cols, TexRun run) {
+        final long base = memAddress0(encoded);
+        final long own = base + (long) encodedInstances * CubeInstancedAttribs.STRIDE;
+        final long end = encodeCubes(cols, run, own);
+        final long ringBase = upload(encoded, (int) (end - base), CubeInstancedAttribs.STRIDE);
+        drawUploadedCubes(ringBase, encodedInstances + run.instances);
+        return ringBase + (own - base);
+    }
+
+    /** [Akira fork] Draws {@code instances} already encoded records from the start of {@code encoded}. */
+    void drawEncodedCubes(ByteBuffer encoded, int instances) {
+        final long ringBase = upload(encoded, instances * CubeInstancedAttribs.STRIDE, CubeInstancedAttribs.STRIDE);
+        drawUploadedCubes(ringBase, instances);
+    }
+
+    private long upload(ByteBuffer buffer, int bytes, int stride) {
+        buffer.position(0);
+        buffer.limit(bytes);
+        final long ringBase = ring.upload(buffer, stride);
+        buffer.clear();
+        return ringBase;
+    }
+
+    /** Writes the run's instances from {@code ptr} on; the address after the last. */
+    private static long encodeCubes(InstanceColumns cols, TexRun run, long ptr) {
+        final InstanceColumns data = run.source != null ? run.source : cols;
         for (TexRun seg = run; seg != null; seg = seg.next) {
             for (int i = seg.start, end = seg.end; i < end; i++) {
                 final int off = i * 16;
@@ -194,17 +229,18 @@ final class InstancedTemplateRenderer {
                 }
             }
         }
-        final long ringBase = uploadStaging(base, ptr, CubeInstancedAttribs.STRIDE);
+        return ptr;
+    }
 
+    private void drawUploadedCubes(long ringBase, int instances) {
         neutralizeExtendedAttribs();
         bindRingTo(UnitCubeMesh.vao(), UnitCubeMesh.VERTEX_FLAGS);
         CubeInstancedAttribs.pointInstanceAttribs(ringBase);
         GLSMBuffers.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
         GLSMPrograms.setFfpInstancing(Instancing.CUBE);
-        GLSMDraws.glDrawArraysInstanced(GL11.GL_QUADS, 0, UnitCubeMesh.VERTEX_COUNT, run.instances);
+        GLSMDraws.glDrawArraysInstanced(GL11.GL_QUADS, 0, UnitCubeMesh.VERTEX_COUNT, instances);
         GLSMPrograms.setFfpInstancing(Instancing.NONE);
         GLSMVertexInput.glBindVertexArray(0);
-        return ringBase;
     }
 
     boolean canRedraw(int ringEpoch, int buffer) {

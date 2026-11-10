@@ -48,6 +48,11 @@ public final class ParticleInstancer {
     private static final ParticleCaptureTessellator CAPTURE = new ParticleCaptureTessellator();
     private static final ParticleParams SCRATCH = new ParticleParams();
     private static final ParticleRenderState STATE = new ParticleRenderState();
+    // [Akira fork] the GL state the layer's particles are drawn under, read once for the layer rather than for
+    // every particle (vanilla sets it before the layer's loop; only a particle that draws itself can change it,
+    // and those go through CAPTURE, after which it is read again)
+    private static final ParticleRenderState LAYER_STATE = new ParticleRenderState();
+    private static boolean layerStateRead;
     private static int restoreDepth = -1;
     private static final Matrix4f LAYER_MV = new Matrix4f();
 
@@ -103,6 +108,7 @@ public final class ParticleInstancer {
     private static void beginLayer() {
         layerActive = false;
         layerStarted = true;
+        layerStateRead = false;
         final SodiumGameOptions options = ClientProxy.options();
         if (options == null || !options.advanced.enableDeferredBatching) return;
 
@@ -135,7 +141,11 @@ public final class ParticleInstancer {
 
         final ParticleDescriptor descriptor = ParticleDescriptorRegistry.forClass(fx.getClass());
         if (descriptor != ParticleDescriptorRegistry.CAPTURE) {
-            STATE.sample();
+            if (!layerStateRead) {
+                LAYER_STATE.sample();
+                layerStateRead = true;
+            }
+            STATE.set(LAYER_STATE);
             SCRATCH.brightness = runTessellator.brightness;
             if (!descriptor.describe(fx, partialTicks, SCRATCH, STATE)) return;
 
@@ -147,6 +157,7 @@ public final class ParticleInstancer {
         }
 
         CAPTURE.begin(runTessellator.brightness, runTessellator, LAYER_MV);
+        layerStateRead = false;
         fx.renderParticle(CAPTURE, partialTicks, rotationX, rotationXZ, rotationZ, rotationYZ, rotationXY);
         CAPTURE.propagateColor();
 
