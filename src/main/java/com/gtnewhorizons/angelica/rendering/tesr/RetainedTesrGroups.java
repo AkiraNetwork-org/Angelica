@@ -974,6 +974,13 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
 
     private Group[] recordGroups = new Group[8];
 
+    /**
+     * Why {@link #queueCubeRecords} last said no (diagnostics): 1 no segments, 2 a shader pack, 3 a glint capture
+     * open, 4 a shader material, 5 not instancing this cycle; a group 6 not streaming, 7 can't instance, 8 probing
+     * (9-11: the same after the frame's first touch).
+     */
+    public static int recordsRefusal;
+
     private boolean takesCubeRecords(Group group) {
         return group.streamPath && drawsInstanced(group) && (group.probe == null || !group.probe.probing);
     }
@@ -987,14 +994,23 @@ final class RetainedTesrGroups implements AngelicaBufferSource.LayerDrawHook {
      */
     public boolean queueCubeRecords(RenderLayer[] layers, int[] ends, int segments, TesrMaterial material, float[] rows,
         long[] tails, Matrix4fc transform) {
-        if (segments <= 0 || deferred != null || glintCapture != null || material.shader() != null || !instancedActive) return false;
+        if (segments <= 0 || deferred != null || glintCapture != null || material.shader() != null || !instancedActive) {
+            recordsRefusal = segments <= 0 ? 1 : deferred != null ? 2 : glintCapture != null ? 3 : material.shader() != null ? 4 : 5;
+            return false;
+        }
         if (segments > recordGroups.length) recordGroups = new Group[segments * 2];
         final Group[] targets = recordGroups;
         for (int s = 0; s < segments; s++) {
             final Group group = groupFor(layers[s], material, 0);
-            if (!takesCubeRecords(group)) return false;
+            if (!takesCubeRecords(group)) {
+                recordsRefusal = !group.streamPath ? 6 : !canInstance(group) ? 7 : 8;
+                return false;
+            }
             touch(group, layers[s]);
-            if (!takesCubeRecords(group)) return false;
+            if (!takesCubeRecords(group)) {
+                recordsRefusal = !group.streamPath ? 9 : !canInstance(group) ? 10 : 11;
+                return false;
+            }
             targets[s] = group;
         }
         EntityShadowReplay.rejectForeignDraw();
