@@ -25,6 +25,53 @@ public record CubeParams(float minX, float minY, float minZ, float spanX, float 
         return new CubeParams(minX, minY, minZ, spanX, spanY, spanZ, texU / texWidth, texV / texHeight, (mirror ? -sizeX : sizeX) / texWidth, sizeY / texHeight, sizeZ / texWidth, sizeZ / texHeight);
     }
 
+    /**
+     * [Akira] The thickness, in model units, a flat box is drawn with as an instanced cube. The instanced shader takes
+     * each face's normal from the cube's matrix column, and a box with no depth has no column to take it from, which
+     * is why {@link #of} turns flat boxes away. A sixteenth of a block is a model unit, so this is about a tenth of a
+     * millimetre: nothing to see, enough for the normal.
+     */
+    public static final float FLAT_SPAN = 2.0e-3f;
+
+    /**
+     * [Akira] A box that is flat along one or more axes (a book's cover, a page, a wing), given {@link #FLAT_SPAN} of
+     * thickness about its plane. Null for a box {@link #of} already takes, or one it turns away for another reason.
+     * Only right where back faces are culled: vanilla draws a flat box's two sides on top of each other, and here
+     * they are a hair apart, so without culling which one shows would differ.
+     */
+    public static CubeParams ofFlat(float texWidth, float texHeight, boolean mirror, int texU, int texV, float x, float y, float z, int sizeX, int sizeY, int sizeZ, float inflate) {
+        if (texWidth <= 0.0f || texHeight <= 0.0f) return null;
+        if (sizeX < 0 || sizeY < 0 || sizeZ < 0) return null;
+        if (mirror && sizeX == 0) return null;
+        float minX = x - inflate;
+        float minY = y - inflate;
+        float minZ = z - inflate;
+        float spanX = ((x + sizeX) + inflate) - minX;
+        float spanY = ((y + sizeY) + inflate) - minY;
+        float spanZ = ((z + sizeZ) + inflate) - minZ;
+        boolean flat = false;
+        if (spanX <= MIN_SPAN) {
+            if (spanX < 0.0f) return null;
+            minX += spanX * 0.5f - FLAT_SPAN * 0.5f;
+            spanX = FLAT_SPAN;
+            flat = true;
+        }
+        if (spanY <= MIN_SPAN) {
+            if (spanY < 0.0f) return null;
+            minY += spanY * 0.5f - FLAT_SPAN * 0.5f;
+            spanY = FLAT_SPAN;
+            flat = true;
+        }
+        if (spanZ <= MIN_SPAN) {
+            if (spanZ < 0.0f) return null;
+            minZ += spanZ * 0.5f - FLAT_SPAN * 0.5f;
+            spanZ = FLAT_SPAN;
+            flat = true;
+        }
+        if (!flat) return null;
+        return new CubeParams(minX, minY, minZ, spanX, spanY, spanZ, texU / texWidth, texV / texHeight, (mirror ? -sizeX : sizeX) / texWidth, sizeY / texHeight, sizeZ / texWidth, sizeZ / texHeight);
+    }
+
     public void writeRows(long ptr, float[] mv, int off, float scale) {
         final float tx = minX * scale;
         final float ty = minY * scale;

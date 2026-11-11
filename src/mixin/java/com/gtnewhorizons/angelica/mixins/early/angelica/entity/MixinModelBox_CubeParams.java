@@ -22,11 +22,22 @@ public abstract class MixinModelBox_CubeParams implements ModelBoxData {
     @Unique
     private CubeParams angelica$cubeParams;
 
+    @Unique
+    private CubeParams angelica$flatCubeParams;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void angelica$captureCubeParams(ModelRenderer part, int texU, int texV, float x, float y, float z, int sizeX, int sizeY, int sizeZ, float inflate, CallbackInfo ci) {
         //noinspection ConstantValue
         if (((Object) this).getClass() != ModelBox.class) return;
         this.angelica$cubeParams = ModelBoxCapture.capture((ModelBox) (Object) this, this.quadList, part, texU, texV, sizeX, sizeY, sizeZ, inflate);
+        if (this.angelica$cubeParams == null) {
+            this.angelica$flatCubeParams = ModelBoxCapture.captureFlat((ModelBox) (Object) this, this.quadList, part, texU, texV, sizeX, sizeY, sizeZ, inflate);
+        }
+    }
+
+    @Override
+    public CubeParams angelica$flatCubeParams() {
+        return this.angelica$flatCubeParams;
     }
 
     @Override

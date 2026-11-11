@@ -173,6 +173,12 @@ public final class ModelPartBatcher {
         TemplateBuffer template;
         CubeParams[] cubes;
         boolean cubesInsideTexture;
+        /**
+         * [Akira] For a part with a flat box (so no {@link #cubes}): every box as a cube, the flat ones given a hair of
+         * thickness. Used in place of the part's mesh only where that looks the same: see {@link #flatCubesNow}.
+         */
+        CubeParams[] flatCubes;
+        boolean flatCubesInsideTexture;
         float scale;
         long lastUsedMs;
         boolean emptyVanillaPart;
@@ -677,6 +683,9 @@ public final class ModelPartBatcher {
             EntityShadowReplay.rejectShadowOnly();
             return true;
         }
+        if (entry.cubes == null && entry.flatCubes != null && flatCubesNow()) {
+            return queueTemplate(entry.template, entry.flatCubes, entry.flatCubesInsideTexture, scale, null, false);
+        }
         return queueTemplate(entry.template, entry.cubes, entry.cubesInsideTexture, scale, null, false);
     }
 
@@ -956,6 +965,8 @@ public final class ModelPartBatcher {
         entry.template = null;
         entry.cubes = null;
         entry.cubesInsideTexture = false;
+        entry.flatCubes = null;
+        entry.flatCubesInsideTexture = false;
         entry.emptyVanillaPart = false;
         final List<ModelBox> boxes = part.cubeList;
         if (builder != null) {
@@ -982,15 +993,36 @@ public final class ModelPartBatcher {
     private static void captureCubes(PartTemplate entry, List<ModelBox> boxes) {
         final int n = boxes.size();
         CubeParams[] cubes = null;
+        boolean flat = false;
         for (int i = 0; i < n; i++) {
             if (!(boxes.get(i) instanceof ModelBoxData data)) return;
-            final CubeParams params = data.angelica$cubeParams();
-            if (params == null) return;
+            CubeParams params = data.angelica$cubeParams();
+            if (params == null) {
+                params = data.angelica$flatCubeParams();
+                if (params == null) return;
+                flat = true;
+            }
             if (cubes == null) cubes = new CubeParams[n];
             cubes[i] = params;
         }
+        if (flat) {
+            entry.flatCubes = cubes;
+            entry.flatCubesInsideTexture = CubeParams.allInsideTexture(cubes);
+            return;
+        }
         entry.cubes = cubes;
         entry.cubesInsideTexture = CubeParams.allInsideTexture(cubes);
+    }
+
+    /**
+     * [Akira] Whether a part with flat boxes can go out as instanced cubes right now: a block entity's model (the
+     * enchanting table's book: five of its seven parts are flat, and each was a draw of its own), in the normal pass,
+     * with back faces culled. Vanilla draws a flat box's two sides on top of each other; as a cube they are a hair
+     * apart, which only looks the same when the far one is culled.
+     */
+    private boolean flatCubesNow() {
+        if (mode != Mode.BLOCK_ENTITIES || shadow || shaderPipeline != null) return false;
+        return (DrawState.liveCull() & DrawState.CULL_BOTH) == DrawState.CULL_BACK;
     }
 
     private RenderLayer layerFor(ResourceLocation texture, EntityRenderCommands.DrawInputs inputs) {
